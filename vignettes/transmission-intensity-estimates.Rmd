@@ -1,0 +1,242 @@
+---
+title: "Estimating transmission intensity"
+author: "Katy Gaythorpe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Estimating transmission intensity}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setupknit, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+This vignette is a guide to constructing yellow fever transmission intensity estimates across the African endemic region. We assume at this stage that you have folders of posterior samples from both the GLM of yellow fever occurrence and the transmission models for seroprevalence.
+
+```{r setup}
+library(mcmcplots)
+library(ggmcmc)
+library(gridExtra)
+library(maptools)
+library(readr)
+library(fields)
+library(Hmisc)
+
+library(YFestimation)
+
+snapal = "Kalypso"
+
+mcmc_out = get_chains("../../multi_model_MCMC_chain_20180622", 
+                      burnin = 0, thin = 10)
+
+glm_mcmc_out = get_chains("../chains/GLM_MCMC_chain_20180515", 
+                          burnin = 2e4, thin = 1)
+
+```
+
+```{r setup_fit,  message = F, warning=F}
+
+# LOAD countries #
+Countries = read_csv(paste0("../../../Data/","Countries.csv"))
+
+# LOADING SEROLOGY DATA #
+Serology = read.csv(paste0("../../../Data/","Serology/serology.csv"), stringsAsFactors = FALSE)
+seroout = process_serology(Serology)
+
+# LOAD envdat #
+Env_Table_path = paste0("../../../Data/","Environment/Africa_adm1_dat_2017.csv") #this file is adapted by hand to have latest outbreaks
+envdat = launch_env_dat(Env_Table_path, Countries$c34)
+
+# POPULATION AND VACCINATION DATA #
+all_res_pop_3d = get_pop_data_3d(path = "../../../Data/", 
+                                 c_country = Countries$c34, 
+                                 dat = envdat$dat) # can we get rid of envdat dependency?
+
+pop1 = all_res_pop_3d$pop1                           
+pop3d = all_res_pop_3d$pop3d                               
+P_tot_2d = all_res_pop_3d$P_tot_2d                                   
+p_prop_3d = all_res_pop_3d$p_prop_3d                                
+
+#get names
+dim_adm  = dimnames(pop3d)[[1]]
+dim_year = as.numeric(dimnames(pop3d)[[2]])
+dim_age  = dimnames(pop3d)[[3]]
+
+
+# VACCINATION DATA #
+vaccdir = paste0("../../../Data/", "Vaccination/")
+
+latest_vaccine_csv = "Outputs/adm1_old/vaccination_coverage_by_adm1_year_age_base_skew0.csv"   #updated at end of 2017
+
+vc2d = read.csv(paste0(vaccdir,latest_vaccine_csv), 
+                stringsAsFactors = FALSE) #read in latest vaccine coverage estimates
+
+names(vc2d)[names(vc2d)=="country"]= "adm0"                          #rename countries as adm0
+names(vc2d)[names(vc2d)=="adm1"]= "adm0_adm1"                        #renames adm1 as adm0_adm1
+
+# formally "repair_vc_data" from FOI model in Kevin's folder
+for (colIndex in 3:ncol(vc2d)){                                      #before 1995, we have NA values for those aged >75
+  vc2d[,colIndex] = ifelse(is.na(vc2d[,colIndex]), vc2d[,colIndex-1], vc2d[,colIndex])
+}
+# restrict to lines in dat
+vc2d = vc2d[vc2d[,"adm0_adm1"] %in% envdat$dat[,"adm0_adm1"],]
+
+#vc3d
+vc3d = transform_into_vc3d(vc2d,  adm="adm1")
+
+# t0_vac_africa #
+t0_vac_africa = calc_t0_vac_africa(vc3d)
+
+# inc_v3d #
+inc_v3d = calc_incidence_vac_general(vc3d)
+    
+# CALCULATE population moments #
+pop_moments_whole = calc_pop_moments(p_prop_3d, t0_vac_africa,dim_adm,dim_year,dim_age)
+
+# aggregate #
+list_aggregate_pop_vc = Make_aggregate_pop_vc_3d(pop1=pop1, vc2d=vc2d, sero_studies=seroout$sero_studies, adm1s=seroout$adm1s)
+pop_agg3d = list_aggregate_pop_vc$pop_agg3d
+vc_agg3d = list_aggregate_pop_vc$vc_agg3d
+
+# calculate aggregated incidence (same function as before)
+inc_v3d_agg = calc_incidence_vac_general(vc_agg3d);
+
+# calculate aggregated moments (different fucntion before)
+pop_moments_agg = calc_pop_moments_agg(pop_agg3d,seroout$t0_vac,dim_year,seroout$study_years)
+
+# pop_momenets_whole #
+pop_moments_whole = calc_pop_moments(p_prop_3d, 
+                                     t0_vac_africa,
+                                     dim_adm,
+                                     dim_year,
+                                     dim_age)
+    
+
+# CREATE R0 LOOKUP TABLE #
+if(!file.exists(paste0("../../../YellowFeverModelEstimation2017/","R0_lookup_table.Rdata") )){
+    
+    ptm = proc.time()
+    create_R0_lookup(dim_adm, 
+                     envdat$dat, 
+                     dim_year,
+                     dim_age,
+                     p_prop_3d,
+                     P_tot_2d,
+                     inc_v3d,
+                     pop_moments_whole,
+                     pop_moments_agg, 
+                     vac_eff_arg = 0.975)
+    proc.time()-ptm
+  } else {
+    load(paste0("../../../YellowFeverModelEstimation2017/","R0_lookup_table.Rdata") )
+  }
+
+
+# pop at survey #
+foi_const_surv = rep(0, seroout$no_sero_surveys)
+
+list_pop_at_survey = create_pop_at_survey(pop_agg3d, seroout$sero_studies, dim_year)
+p_at_survey = list_pop_at_survey$p_at_survey_3d
+P_tot_survey = list_pop_at_survey$P_tot_survey_2d
+
+#read in models
+Models= readr::read_csv(paste0("../../../YellowFeverModelEstimation2017/","Models.csv" ) ) 
+
+object_glm = fit_glm(dat = envdat$dat, 
+                     depi = envdat$depi, 
+                     Models$fm )  
+
+beta0 = object_glm[[1]]
+x = object_glm[[2]]
+y = object_glm[[3]]
+
+# read shapefiles in #
+shp0 = readShapePoly(paste0("../../../shapefiles/gadm2/", "Africa_adm0.shp")) #if gadm2
+shp1 = readShapePoly(paste0("../../../shapefiles/gadm2/", "Africa_adm1.shp"))
+
+# adjust titles #
+shp1$adm0_adm1 = paste(shp1$ISO, shp1$ID_1, sep="_")
+shp1 = shp1[order(shp1$adm0_adm1),]
+
+
+```
+
+
+```{r hpd, message=F, warning=F}
+
+out = calculate_hpd(mcmc_out, glm_mcmc_out)
+
+Foi_param = out$Foi_param
+R0_param = out$R0_param
+
+```
+
+
+```{r Foi_map,  message = F, warning=F, fig.cap = "\\label{fig:Foi_map}Map of foi values for low confidence bound (left) median (middle) and high confidence (right).", fig.align='center', fig.pos = 'h', strip.white=F, fig.height = 5 }
+
+ii = c(2:21)
+varsin_nc = c(1, 17, 18, 19, 20) 
+
+colours = rev(snapalette::snapalette(snapal, 100, type = "continuous"))
+
+plot_transmission_intensity(x,
+                            ii,
+                            seroout,
+                            params = Foi_param[,2],
+                            dat = envdat$dat,
+                            t0_vac_africa,
+                            dim_year,
+                            dim_age,
+                            p_prop_3d,
+                            P_tot_2d,
+                            inc_v3d,
+                            pop1,
+                            vc2d,
+                            varsin_nc,
+                            polydeg = 5,
+                            R0_lookup,
+                            model_type = "Foi",
+                            shp1,
+                            shp0,
+                            Countries,
+                            colours)
+
+
+```
+
+
+```{r R0_map,   message = F, warning=F, fig.cap = "\\label{fig:R0_map}Map of $R_0$ values for low confidence bound (left) median (middle) and high confidence (right).", fig.align='center', fig.pos = 'h', strip.white=F, fig.height = 5 }
+
+
+
+plot_transmission_intensity(x,
+                            ii,
+                            seroout,
+                            params = R0_param[,2],
+                            dat = envdat$dat,
+                            t0_vac_africa,
+                            dim_year,
+                            dim_age,
+                            p_prop_3d,
+                            P_tot_2d,
+                            inc_v3d,
+                            pop1,
+                            vc2d,
+                            varsin_nc,
+                            polydeg,
+                            R0_lookup,
+                            model_type = "R0",
+                            shp1,
+                            shp0,
+                            Countries,
+                            colours)
+
+```

@@ -1,0 +1,139 @@
+---
+title: "Processing the GLM estimation output"
+author: "Katy Gaythorpe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Processing the GLM estimation output}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setupknit, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+This guide is to help you examine the output of the MCMC for the GLM. We therefore assume that you already have a folder filled with Markov chain Monte Carlo samples from the posterior of the parameters for the generalised linear model.
+
+```{r setup}
+library(mcmcplots)
+library(ggmcmc)
+library(gridExtra)
+library(maptools)
+library(readr)
+library(fields)
+
+library(YFestimation)
+
+glm_mcmc_out=get_chains("../../chains/GLM_MCMC_chain_20180515", 
+                        burnin = 2e4, thin = 1)
+
+glm_mcmc_out2 = ggmcmc::ggs( mcmcplots::convert.mcmc.list( 
+                    subset( glm_mcmc_out, 
+                            select = -c(posteriorProb, acceptRate))) )
+
+snapal = "Venice"
+```
+
+
+To assess the convergence of the MCMC chains we shall plot a selection of the outputs for two parameters.
+
+```{r trace_glm,   fig.cap = "\\label{fig:trace_glm}Trace plot.", fig.align='center', fig.pos = 'h', strip.white=F , fig.width = 8}
+
+for(i in 1:2){
+  
+  assign(paste0("f",i),
+         ggmcmc::ggs_traceplot(glm_mcmc_out2, 
+                               family = names(glm_mcmc_out)[i])+
+           theme(legend.position = "none") )
+  
+}
+
+grid.arrange(f1,f2, nrow = 1)
+```
+
+```{r density_glm, fig.cap = "\\label{fig:density_glm}Density plot of entire chain (grey) and last 10\\% of the chain (green).", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8}
+
+for(i in 1:2){
+  
+  assign(paste0("f",i),
+         ggmcmc::ggs_compare_partial(glm_mcmc_out2, 
+                                     family = names(glm_mcmc_out)[i]) +
+           theme(legend.position = "none") )
+  
+}
+
+grid.arrange(f1,f2, nrow=1)
+
+```
+
+Finally, we examine the values of all parameters through a caterpillar plot and compare the prior and posterior distributions.
+
+```{r caterpillar_glm,   fig.cap = "\\label{fig:caterpillar_glm}Caterpillar plot of all parameters.", fig.align='center', fig.width = 8, fig.pos = 'h', strip.white=F}
+
+ggmcmc::ggs_caterpillar(glm_mcmc_out2)
+```
+
+```{r priorpost_glm,   fig.cap = "\\label{fig:priorpost_glm}Prior (colour) and posterior (grey) distributions for all parameters.", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8, fig.height=10}
+
+plot_prior_post(glm_mcmc_out, 
+                prior_col = snapalette::snapalette(snapal, 
+                                                   3, 
+                                                   type="discrete")[2], 
+                "GLM")
+```
+
+\FloatBarrier 
+
+## Assessing the fit
+
+We now collect the estimates to produce the posterior predictive distribution of yellow fever reports.
+
+```{r glm_predict,  fig.cap = "\\label{fig:predict_glm}Prediction of glm. The scale indicates the probability of  YF report over the observation period.", fig.align='center', fig.pos = 'h', strip.white=F, fig.height = 5, fig.width=8}
+
+
+Est_beta =  apply(glm_mcmc_out[,1:20], 2, median)
+
+# read shapefiles in #
+shp0 = readShapePoly(paste0("../../../shapefiles/gadm2/", "Africa_adm0.shp")) #if gadm2
+shp1 = readShapePoly(paste0("../../../shapefiles/gadm2/", "Africa_adm1.shp"))
+
+# adjust titles #
+shp1$adm0_adm1 = paste(shp1$ISO, shp1$ID_1, sep="_")
+shp1 = shp1[order(shp1$adm0_adm1),]
+
+# read countries in #
+Countries = read_csv(paste0("../../../Data/","Countries.csv"))
+
+#sort age vector
+ageVec = c(0:100)
+
+# LOAD ENVIRONMENTAL DATA #
+Env_Table_path = (paste0("../../../Data/","Environment/Africa_adm1_dat_2017.csv")) 
+envdat = launch_env_dat(Env_Table_path, Countries$c34)
+
+
+# FIT GLM #
+
+#read in models
+Models= readr::read_csv(paste0("../../../YellowFeverModelEstimation2017/","Models.csv" ) ) 
+
+object_glm = fit_glm(dat = envdat$dat, 
+                     depi = envdat$depi, 
+                     Models$fm )  
+
+beta0 = object_glm[[1]]
+x = object_glm[[2]]
+y = object_glm[[3]]
+
+#########################################################################################################
+plot_glm_map(shp0, shp1, Countries$c34, envdat$dat, Est_beta, x, 
+                                   snapalette::snapalette(snapal, 1000, type="continuous"))
+
+```

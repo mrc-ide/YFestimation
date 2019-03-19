@@ -1,0 +1,32 @@
+Package: YFestimation
+Title: Estimate ecological niche and two transmission models for yellow fever in Africa.
+Version: 0.0.0.9000
+Authors@R: person("Katy", "Gaythorpe", email = "k.gaythorpe@imperial.ac.uk", role = c("aut", "cre"))
+Description: Estimates ecological niche model (GLM) and two transmission models (SERO) for yellow fever. 
+    The GLM is estimated using conventional MCMC and the two transmission models are 
+    estimated with product space MCMC allowing the user to find the model evidence for one 
+    relative to the other. Models are based on Garske et al. (2014) and Jean et al. (2019).
+Depends: R (>= 3.5.1)
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.0
+Imports: 
+    dplyr,
+    readr,
+    reshape2,
+    mvtnorm,
+    truncdist,
+    abind,
+    data.table,
+    mcmcplots,
+    boot,
+    ggmcmc,
+    gridExtra,
+    maptools,
+    fields,
+    YFburden
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

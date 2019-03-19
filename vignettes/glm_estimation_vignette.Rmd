@@ -1,0 +1,96 @@
+---
+title: "Running the GLM estimation"
+author: "Katy Gaythorpe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running the GLM estimation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE
+)
+```
+
+This is a guide on how to run the estimation for the generalized linear model of yellow fever occurrence. It is quite specific to the data input types and format that we use. Hopefully, in future, this will be more general.
+
+## Setup
+
+```{r estimation_setup, eval=FALSE}
+
+# load libraries #
+library(dplyr)
+library(readr)
+library(reshape2)
+library(mvtnorm)
+
+library(YFestimation)
+
+# load countries #
+Countries = read_csv(paste0("../../Data/","Countries.csv"))
+
+# load environmental and occurrence data #
+Env_Table_path = (paste0("../Data/",
+                         "Environment/Africa_adm1_dat_2017.csv")) 
+envdat = launch_env_dat(Env_Table_path, Countries$c34)
+
+# load models #
+Models= read_csv(paste0("../../YellowFeverModelEstimation2017/",
+                        "Models.csv" ) ) 
+
+# fit glm for first time #
+object_glm = fit_glm(dat = envdat$dat, 
+                     depi = envdat$depi, 
+                     Models$fm )  
+
+beta0 = object_glm[[1]]
+x = object_glm[[2]]
+y = object_glm[[3]]
+
+```
+
+## Set the initial parameters
+
+```{r initial_parameters, eval=FALSE}
+
+# load parameters from a previous run #
+StartParamFoi=read.csv(paste0("../../YellowFeverModelEstimation2017/",
+                              "StartParam_","Foi",".csv"),
+                       header = TRUE)
+StartParamR0=read.csv(paste0("../../YellowFeverModelEstimation2017/",
+                             "StartParam_","R0",".csv"),
+                      header = TRUE)
+
+# give them the right names 
+parnames =  paste("log", names(beta0), sep = ".")
+pars_ini = rep(NA,length(parnames))
+names(pars_ini) = parnames
+
+# combine if necessary from multiple runs
+ii = 2:(length(beta0)+1)
+pars_ini[1:20] =  rowMeans(cbind(StartParamFoi[ii,1], StartParamR0[ii,1])) 
+
+```
+
+
+## Run the MCMC
+
+```{r mcmc, eval = FALSE}
+# set-up #
+plot_chain = TRUE
+
+# create a directory to save the output in #
+name_dir = paste0("GLM_MCMC_chain", "_", format(Sys.time(),"%Y%m%d"))
+dir.create(name_dir)
+
+Niter = 1e5
+
+# MCMC #
+GLM_MCMC(Niter, burnin, name_dir, pars_ini, x, y, plot_chain)
+
+```
+
+This will save the output in the directory of choice (`name_dir`) and plot the chain for the first parameter if you wish to see an output.

@@ -1,0 +1,229 @@
+---
+title: "Processing the SERO estimation output"
+author: "Katy Gaythorpe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Processing the SERO estimation output}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setupknit, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+This guide is to help you examine the output of the product space MCMC for the SERO. We therefore assume that you already have a folder filled with Markov chain Monte Carlo samples from the posterior of the parameters for the seroprevalence models. 
+
+```{r setup, fig.cap = "\\label{fig:trace}Trace plot of model indicator.", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8 }
+library(mcmcplots)
+library(ggmcmc)
+library(gridExtra)
+library(maptools)
+library(readr)
+library(fields)
+library(Hmisc)
+
+library(YFestimation)
+
+snapal = "Fjord"
+
+mcmc_out =get_chains(
+  "../../multi_model_MCMC_chain_20180622", 
+  burnin = 1e3, thin = 100)
+
+#plot model chain
+plot(mcmc_out$model_chain, type="l", ylim=c(0,1), 
+     ylab="Model indicator")
+```
+
+The only shared parameters are the vaccine efficacy and vc factor for CMRs, the traceplots for these are as follows.
+
+```{r trace,  message = F, warning=F, fig.cap = "\\label{fig:trace}Trace plot.", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8 }
+
+mcmc_out2 = ggs( convert.mcmc.list( mcmc_out[,1:83]) )
+
+f1 = ggs_traceplot(mcmc_out2, family = "vac")
+
+f2 = ggs_traceplot(mcmc_out2, family = "vc")
+
+grid.arrange(f1, f2, nrow=1)
+```
+
+```{r partial,  message = F, warning=F, fig.cap = "\\label{fig:partial}Density plot of entire chain (grey) and last 10\\% of the chain (green).", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8 }
+
+
+f1 = ggs_compare_partial(mcmc_out2, family = "vac")+
+  theme(legend.position = "none")
+
+f2 = ggs_compare_partial(mcmc_out2, family = "vc")+ 
+  theme(legend.position = "none")
+
+grid.arrange(f1, f2, nrow=1)
+```
+
+```{r prior_posterior_vac_eff,  message = F, warning=F, fig.cap = "\\label{fig:priorposterior}Prior and posterior densities for vaccine efficacy and vc factor for CMRs.", fig.align='center', fig.pos = 'h', strip.white=F, fig.width = 8}
+
+MultiModelEstimation::plot_prior_post(mcmc_out, 
+                                      snapalette::snapalette(snapal, 
+                                                             3, 
+                                                             type="discrete")[2], 
+                                      "SERO")
+```
+
+
+\FloatBarrier 
+
+## Bayes factors
+
+We may calculate the Bayes factors by approximating the posterior model probability form the model-indicator chain. The proportion of time spent in either model is a proxy for the model evidence which we may use, with the model priors, to calculate the log Bayes factors. We calculate the model evidence using a boostrap sample of the model chain in order to capture some of the variation.
+
+
+```{r bootstrap,  echo=F, message = F, warning=F, fig.cap = "\\label{fig:bootstrap}Bootrsap sample of model evidence for $R_0$.", fig.align='center', fig.pos = 'h', strip.white=F, fig.width=8 }
+
+out = calculate_bootstrap_Bayes(mcmc_out, 
+                                col = snapalette::snapalette(snapal, 
+                                                             3, 
+                                                             type="discrete")[2])
+```
+
+The log Bayes factor for $R_0$ over Foi is `r toString(format(round(out$log_Bayes_R0_FOI[2], 2), nsmall = 2))` in range [`r toString(format(round(out$log_Bayes_R0_FOI[1], 2), nsmall = 2))`, `r toString(format(round(out$log_Bayes_R0_FOI[3], 2), nsmall = 2))`]. 
+
+
+\FloatBarrier
+
+##Assessing the fit
+
+We will now plot the Hpd interval predictions of both transmission models.
+
+```{r setup_fit,  message = F, warning=F}
+
+# LOAD countries #
+Countries = read_csv(paste0("../../../Data/","Countries.csv"))
+
+# LOADING SEROLOGY DATA #
+Serology = read.csv(paste0("../../../Data/","Serology/serology.csv"), stringsAsFactors = FALSE)
+seroout = process_serology(Serology)
+
+# LOAD envdat #
+Env_Table_path = paste0("../../../Data/","Environment/Africa_adm1_dat_2017.csv") #this file is adapted by hand to have latest outbreaks
+envdat = launch_env_dat(Env_Table_path, Countries$c34)
+
+# POPULATION AND VACCINATION DATA #
+all_res_pop_3d = get_pop_data_3d(path = "../../../Data/", 
+                                 c_country = Countries$c34, 
+                                 dat = envdat$dat) # can we get rid of envdat dependency?
+
+pop1 = all_res_pop_3d$pop1                           
+pop3d = all_res_pop_3d$pop3d                               
+P_tot_2d = all_res_pop_3d$P_tot_2d                                   
+p_prop_3d = all_res_pop_3d$p_prop_3d                                
+
+#get names
+dim_adm  = dimnames(pop3d)[[1]]
+dim_year = as.numeric(dimnames(pop3d)[[2]])
+dim_age  = dimnames(pop3d)[[3]]
+
+
+# VACCINATION DATA #
+vaccdir = paste0("../../../Data/", "Vaccination/")
+
+latest_vaccine_csv = "Outputs/adm1_old/vaccination_coverage_by_adm1_year_age_base_skew0.csv"   #updated at end of 2017
+
+vc2d = read.csv(paste0(vaccdir,latest_vaccine_csv), 
+                stringsAsFactors = FALSE) #read in latest vaccine coverage estimates
+
+names(vc2d)[names(vc2d)=="country"]= "adm0"                          #rename countries as adm0
+names(vc2d)[names(vc2d)=="adm1"]= "adm0_adm1"                        #renames adm1 as adm0_adm1
+
+# formally "repair_vc_data" from FOI model in Kevin's folder
+for (colIndex in 3:ncol(vc2d)){                                      #before 1995, we have NA values for those aged >75
+  vc2d[,colIndex] = ifelse(is.na(vc2d[,colIndex]), vc2d[,colIndex-1], vc2d[,colIndex])
+}
+# restrict to lines in dat
+vc2d = vc2d[vc2d[,"adm0_adm1"] %in% envdat$dat[,"adm0_adm1"],]
+
+#vc3d
+vc3d = transform_into_vc3d(vc2d,  adm="adm1")
+
+# t0_vac_africa #
+t0_vac_africa = calc_t0_vac_africa(vc3d)
+
+# inc_v3d #
+inc_v3d = calc_incidence_vac_general(vc3d)
+    
+# CALCULATE population moments #
+pop_moments_whole = calc_pop_moments(p_prop_3d, t0_vac_africa,dim_adm,dim_year,dim_age)
+
+# aggregate #
+list_aggregate_pop_vc = Make_aggregate_pop_vc_3d(pop1=pop1, vc2d=vc2d, sero_studies=seroout$sero_studies, adm1s=seroout$adm1s)
+pop_agg3d = list_aggregate_pop_vc$pop_agg3d
+vc_agg3d = list_aggregate_pop_vc$vc_agg3d
+
+# calculate aggregated incidence (same function as before)
+inc_v3d_agg = calc_incidence_vac_general(vc_agg3d);
+
+# calculate aggregated moments (different fucntion before)
+pop_moments_agg = calc_pop_moments_agg(pop_agg3d,seroout$t0_vac,dim_year,seroout$study_years)
+
+# pop_momenets_whole #
+pop_moments_whole = calc_pop_moments(p_prop_3d, 
+                                     t0_vac_africa,
+                                     dim_adm,
+                                     dim_year,
+                                     dim_age)
+    
+
+# CREATE R0 LOOKUP TABLE #
+if(!file.exists(paste0("../../../YellowFeverModelEstimation2017/","R0_lookup_table.Rdata") )){
+    
+    ptm = proc.time()
+    create_R0_lookup(dim_adm, 
+                     envdat$dat, 
+                     dim_year,
+                     dim_age,
+                     p_prop_3d,
+                     P_tot_2d,
+                     inc_v3d,
+                     pop_moments_whole,
+                     pop_moments_agg, 
+                     vac_eff_arg = 0.975)
+    proc.time()-ptm
+  } else {
+    load(paste0("../../../YellowFeverModelEstimation2017/","R0_lookup_table.Rdata") )
+  }
+
+
+# pop at survey #
+foi_const_surv = rep(0, seroout$no_sero_surveys)
+
+list_pop_at_survey = create_pop_at_survey(pop_agg3d, seroout$sero_studies, dim_year)
+p_at_survey = list_pop_at_survey$p_at_survey_3d
+P_tot_survey = list_pop_at_survey$P_tot_survey_2d
+
+
+```
+
+
+```{r hpd, message=F, warning=F}
+
+out = calculate_hpd(mcmc_out, glm_mcmc_out = NA)
+
+hpd_sero = out$hpd_sero
+
+```
+
+```{r sero_predict1,  message = F, warning=F, fig.cap = "\\label{fig:sero_predict1}Seroprevalence predictions from $R_0$ model (red) and Foi model (blue).", fig.align='center', fig.pos = 'h', fig.height = 10, fig.width = 20, strip.white=F}
+
+plot_sero_predictions(seroout, hpd_sero, pop_agg3d, dim_year, 
+                      dim_age, inc_v3d, pop_moments_agg, vc_agg3d)
+
+```
+
+

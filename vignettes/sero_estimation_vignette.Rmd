@@ -1,0 +1,291 @@
+---
+title: "Running the seroprevalence estimation"
+author: "Katy Gaythorpe"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Running the seroprevalence estimation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+This is a guide on how to run the estimation for the transmission models of yellow fever seroprevalence. It is quite specific to the data input types and format that we use. Hopefully, in future, this will be more general.
+
+## Setup
+
+```{r estimation_setup, eval=FALSE}
+
+# load libraries #
+library(dplyr)
+library(readr)
+library(reshape2)
+library(abind)
+library(mvtnorm)
+library(truncdist)
+
+library(YFburden)
+library(YFestimation)
+
+# load countries #
+Countries = read_csv(paste0("../Data/","Countries.csv"))
+
+# load serology data #
+Serology = read.csv(paste0("../Data/","Serology/serology.csv"), 
+                    stringsAsFactors = FALSE)
+seroout = process_serology(Serology)
+
+# load environmental data # 
+# THIS MAY BECOME OBSOLETE #
+Env_Table_path = paste0("../Data/","Environment/Africa_adm1_dat_2017.csv") 
+envdat = launch_env_dat(Env_Table_path, Countries$c34)
+
+# load population data #
+all_res_pop_3d = get_pop_data_3d(path = "../Data/", 
+                                 c_country = Countries$c34, 
+                                 dat = envdat$dat) 
+
+pop1 = all_res_pop_3d$pop1                                        
+pop3d = all_res_pop_3d$pop3d                                      
+P_tot_2d = all_res_pop_3d$P_tot_2d   
+p_prop_3d = all_res_pop_3d$p_prop_3d      
+
+#get names
+dim_adm  = dimnames(pop3d)[[1]]
+dim_year = as.numeric(dimnames(pop3d)[[2]])
+dim_age  = dimnames(pop3d)[[3]]
+dim_survey = seroout$sero_studies
+
+# load vaccination data #
+vaccdir = paste0("../Data/", "Vaccination/", "Outputs/", "adm1_old/")
+
+latest_vaccine_csv = "vaccination_coverage_by_adm1_year_age_base_skew0.csv"   
+
+vc2d = read.csv(paste0(vaccdir,latest_vaccine_csv), 
+                stringsAsFactors = FALSE) 
+
+names(vc2d)[names(vc2d)=="country"]= "adm0"       
+names(vc2d)[names(vc2d)=="adm1"]= "adm0_adm1"    
+
+
+for (colIndex in 3:ncol(vc2d)){  
+  #before 1995, we have NA values for those aged >75
+  vc2d[,colIndex] = ifelse(is.na(vc2d[,colIndex]),
+                           vc2d[,colIndex-1], 
+                           vc2d[,colIndex])
+}
+# restrict to lines in dat
+vc2d = vc2d[vc2d[,"adm0_adm1"] %in% envdat$dat[,"adm0_adm1"],]
+
+```
+
+## Aggregate data to survey level and time
+
+```{r aggregate}
+list_aggregate_pop_vc = Make_aggregate_pop_vc_3d(pop1=pop1, 
+                                                 vc2d=vc2d, 
+                                                 sero_studies=seroout$sero_studies, 
+                                                 adm1s=seroout$adm1s) 
+pop_agg3d = list_aggregate_pop_vc$pop_agg3d 
+vc_agg3d = list_aggregate_pop_vc$vc_agg3d 
+
+#calculate aggregated incidence (same function as before)
+inc_v3d_agg = calc_incidence_vac_general(vc_agg3d) 
+
+#calculate aggregated moments (different fucntion before)
+pop_moments_agg = calc_pop_moments_agg(pop_agg3d,
+                                       seroout$t0_vac,
+                                       dim_year,
+                                       seroout$study_years) 
+
+```
+
+## R0 lookup table
+
+This is not needed directly for the estimation so this section will be moved.
+
+```{r R0_lookup}
+
+if(!file.exists(paste0("../YellowFeverModelEstimation2017/",
+                       "R0_lookup_table.Rdata") )){
+  
+  vc3d = transform_into_vc3d(vc2d,  adm="adm1")
+  
+  inc_v3d = calc_incidence_vac_general(vc3d)
+  
+  t0_vac_africa = calc_t0_vac_africa(vc3d)
+  
+  pop_moments_whole = calc_pop_moments(p_prop_3d, 
+                                       t0_vac_africa,
+                                       dim_adm,
+                                       dim_year,
+                                       dim_age)
+  
+  ptm = proc.time()
+  create_R0_lookup(dim_adm, 
+                   envdat$dat, 
+                   dim_year,
+                   dim_age,
+                   p_prop_3d,
+                   P_tot_2d,
+                   inc_v3d,
+                   pop_moments_whole,
+                   pop_moments_agg, 
+                   vac_eff_arg = 0.975)
+  proc.time()-ptm
+} else {
+  load(paste0("../YellowFeverModelEstimation2017/",
+              "R0_lookup_table.Rdata") )
+}
+
+```
+
+
+## Set the initial parameters
+
+```{r inital_param}
+
+# additional foi to add to CAF survey #
+foi_const_surv = c(0,1e-6,0,0,0,0,rep(0,seroout$no_sero_surveys-6))
+
+# get population sizes at surveys #
+out_p = create_pop_at_survey(pop_agg3d,dim_survey,dim_year) 
+p_at_survey = out_p$p_at_survey_3d
+P_tot_survey = out_p$P_tot_survey_2d
+
+# load parameters from a previous run #
+StartParamFoi=read.csv(paste0("../YellowFeverModelEstimation2017/",
+                              "StartParam_","Foi",".csv"))
+
+# itialising parameters for estimation #
+parnames =  c("vac_eff",
+              paste("Foi", seroout$sero_studies, sep = "_"),
+              paste("R0", seroout$sero_studies, sep = "_"),
+              paste("vc_factor_CMRs", sep = "_")
+)
+pars_ini = rep(NA,length(parnames))
+names(pars_ini) = parnames
+
+## filling the pars_in vector
+# vaccine efficacy 
+pars_ini[1] =log(0.83) 
+
+# foi for each survey 
+pars_ini[grep("Foi", parnames)] = StartParamFoi[(21+1) : (21+seroout$no_sero_surveys),1] 
+
+# R0 for each survey KATY IS LOG TRANSFORMING THESE
+#this is the max post prob values of R0 from trial run
+pars_ini[grep("R0", parnames)] = c(0.1503953022, 0.3708065293, 0.3441911224, 0.5709173667, 0.1821695028, 
+                                   0.1586931611, 0.0016357683, 0.0121969578, 0.0391997444, 0.0110269535, 
+                                   0.0226958932, 0.0033852389, 0.0033071680, 0.0051427979, 0.0012126984, 
+                                   0.0029272731, 0.0039877790, 0.0246799862, 0.0143955347, 0.0145107003, 
+                                   0.0306652264, 0.0007623095, 0.0197133792, 0.0009735660, 0.0029589214, 
+                                   0.0074393355, 0.0203410934, 0.0071625044, 0.0104076848, 0.0017355270, 
+                                   0.0012662915, 0.0411910100, 0.0473851303, 0.0648086996, 0.0144261102, 
+                                   0.0121657436, 0.0456392304, 0.0270631846, 0.2184448114, 0.1889724788) 
+
+#vc.factor.CMRs 
+pars_ini[length(pars_ini)]= -0.3184868 
+
+# indices where vaccination affects serology #
+varsin_nc = c(1, 17, 18, 19, 20)
+
+# declare vector to identify different parameter types: vacc eff=1, Foi/R0=3, vc.factor.CMRs =4
+parameter_type = c(1,rep(3,2*seroout$no_sero_surveys), 4) # THIS NOW INDEXES THE DIFFERENT PARAMETER TYPES
+
+# initial model #
+model_type = "R0" #"Foi" #
+
+```
+
+## Set pseudo prior distributions
+
+```{r pseudopriors}
+
+# load posteriors from previous runs #
+FOI_posterior_distributions <-
+  read.csv(paste0("Z:/MultiModelInference/", 
+                  "Foi/posterior_distributions_norm.csv"),
+    stringsAsFactors = FALSE)
+FOI_posterior_distributions = cbind(FOI_posterior_distributions, model_type = "Foi")
+
+R0_posterior_distributions <- 
+  read.csv(paste0("Z:/MultiModelInference/", 
+                  "R0/posterior_distributions_norm_tweak.csv"), 
+    stringsAsFactors = FALSE)
+R0_posterior_distributions = cbind(R0_posterior_distributions, model_type = "R0")
+
+# bind #
+posterior_distributions = rbind(FOI_posterior_distributions, 
+                                R0_posterior_distributions)
+
+#tweak posterior distributions 
+scale_factor = setup_pseudoprior(pars_ini, 
+                                 posterior_distributions, 
+                                 "R0")
+
+posterior_distributions$sd[posterior_distributions$model_type == "R0"] = 
+  scale_factor * posterior_distributions$sd[posterior_distributions$model_type == "R0"]
+
+```
+
+## Product space MCMC
+
+This is a transdimensional Markov chain Monte Carlo estimation technique specified for two models and sampled through Metropolis-within-Gibbs. See Gaythorpe et al. 2019 for further details.
+
+```{r estimation}
+
+#whether to ignore any surveys from likelihood calculation
+ign = 2
+
+#calculate the log probability of the Foi model for the intial parameters- 
+#this will need adjusting so do not get too comfortable
+prob_Foi = setup_modelprior(pars_ini,
+                            seroout,
+                            foi_const_surv,
+                            vc_agg3d,
+                            pop_agg3d,
+                            pop_moments_agg,
+                            dim_year,
+                            dim_age,
+                            p_at_survey,
+                            P_tot_survey,
+                            inc_v3d_agg, 
+                            ign )
+
+#create a directory to save the output in
+name_dir = paste0("multi_model_MCMC_chain", "_", 
+                  format(Sys.time(),"%Y%m%d"), 
+                  "_", run_id)
+dir.create(name_dir,  showWarnings = TRUE)
+
+#specify number of iterations
+Niter = 5e4
+
+Sero_Gibbs_MCMC(pars_ini = pars_ini,
+                seroout = seroout,
+                foi_const_surv = foi_const_surv,
+                vc_agg3d = vc_agg3d,
+                pop_agg3d = pop_agg3d,
+                pop_moments_agg=pop_moments_agg,
+                dim_year = dim_year,
+                dim_age = dim_age,
+                p_at_survey = p_at_survey,
+                P_tot_survey = P_tot_survey,
+                inc_v3d_agg = inc_v3d_agg,
+                model_type = model_type,
+                parameter_type = parameter_type,
+                prob_Foi,
+                posterior_distributions = posterior_distributions,
+                ign,
+                name_dir = name_dir,
+                Niter = Niter)
+
+```
