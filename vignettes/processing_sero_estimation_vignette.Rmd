@@ -13,7 +13,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = TRUE,
+  eval = FALSE,
   warning = FALSE,
   message = FALSE
 )
@@ -93,7 +93,7 @@ out = calculate_bootstrap_Bayes(mcmc_out,
                                                              type="discrete")[2])
 ```
 
-The log Bayes factor for $R_0$ over Foi is `r toString(format(round(out$log_Bayes_R0_FOI[2], 2), nsmall = 2))` in range [`r toString(format(round(out$log_Bayes_R0_FOI[1], 2), nsmall = 2))`, `r toString(format(round(out$log_Bayes_R0_FOI[3], 2), nsmall = 2))`]. 
+The log Bayes factor for $R_0$ over Foi is ` toString(format(round(out$log_Bayes_R0_FOI[2], 2), nsmall = 2))` in range [` toString(format(round(out$log_Bayes_R0_FOI[1], 2), nsmall = 2))`, ` toString(format(round(out$log_Bayes_R0_FOI[3], 2), nsmall = 2))`]. 
 
 
 \FloatBarrier
