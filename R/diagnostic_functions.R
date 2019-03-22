@@ -33,6 +33,9 @@ get_chains = function(path,
   if(burnin>nrow(mcmc_out)){stop("burnin exceeds chain length")}
   mcmc_out = mcmc_out[burnin:nrow(mcmc_out),]
 
+  #remove NA rows
+  mcmc_out = mcmc_out %>% tidyr::drop_na()
+
   #thin
   mcmc_out=mcmc_out[seq(1,nrow(mcmc_out),thin),]
 

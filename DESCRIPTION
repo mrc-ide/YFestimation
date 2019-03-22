@@ -6,7 +6,6 @@ Description: Estimates ecological niche model (GLM) and two transmission models 
     The GLM is estimated using conventional MCMC and the two transmission models are 
     estimated with product space MCMC allowing the user to find the model evidence for one 
     relative to the other. Models are based on Garske et al. (2014) and Jean et al. (2019).
-Depends: R (>= 3.5.1)
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
@@ -25,7 +24,8 @@ Imports:
     gridExtra,
     maptools,
     fields,
-    YFburden
+    YFburden,
+    tidyr
 Suggests: 
     knitr,
     rmarkdown

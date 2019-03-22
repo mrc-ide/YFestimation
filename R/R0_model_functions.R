@@ -464,7 +464,7 @@ create_R0_lookup = function(dim_adm,
                                        vac_eff_arg = vac_eff_arg
     )$Ninf_t_province # this is for each year from 1940 to 2050
 
-    R0_lookup[,r] = rowSums(tmp[, which(dim_year==1984):which(dim_year==2017)])
+    R0_lookup[,r] = rowSums(tmp[, which(dim_year==1984):which(dim_year==2018)])
   }
   save(R0_lookup, file="R0_lookup_table.Rdata")
 

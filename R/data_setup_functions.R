@@ -443,7 +443,7 @@ calc_pop_moments = function(p_prop,
   ageVec=c(0:100)
 
   minYear=1983 #min year of data
-  maxYear=2017 #last year of data
+  maxYear=2018 #last year of data
   print("Remember, last year of data is hardcoded into calc_pop_moments")
 
   maxDuration=maxYear-minYear + 1 #duration of data for second for loop
@@ -507,7 +507,7 @@ calc_pop_moments_agg = function(pop_agg3d,
   ageVec=c(0:100)# a matrix of age with the same dimension that pop_agg for 1 fixed year
 
   minYear=1983 #min year of data
-  maxYear=2017 #last year of data
+  maxYear=2018 #last year of data
   print("Remember, last year of data is hardcoded into calc_pop_moments_agg")
 
   maxDuration=maxYear-minYear + 1 #duration of data for second for loop
