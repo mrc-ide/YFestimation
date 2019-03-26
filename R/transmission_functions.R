@@ -68,8 +68,8 @@ fun_calc_pdetect_multi_both = function(x,
                                         pop_moments_whole,
                                         vac_eff_arg = vac_eff)
 
-    # res returns the total Nb of infection on the whole period, I only need 1984 to 2018
-    Ninf = rowSums( res$Ninf_t_province[,which(dim_year==1984):which(dim_year==2018)] )
+    # res returns the total Nb of infection on the whole period, I only need 1984 to 2019
+    Ninf = rowSums( res$Ninf_t_province[,which(dim_year==1984):which(dim_year==2019)] )
     Ninf = ifelse(Ninf<1, 1, Ninf)
 
   } else if(model_type == "Foi"){

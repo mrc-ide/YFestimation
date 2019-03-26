@@ -443,7 +443,7 @@ calc_pop_moments = function(p_prop,
   ageVec=c(0:100)
 
   minYear=1983 #min year of data
-  maxYear=2018 #last year of data
+  maxYear=2019 #last year of data
   print("Remember, last year of data is hardcoded into calc_pop_moments")
 
   maxDuration=maxYear-minYear + 1 #duration of data for second for loop
@@ -507,7 +507,7 @@ calc_pop_moments_agg = function(pop_agg3d,
   ageVec=c(0:100)# a matrix of age with the same dimension that pop_agg for 1 fixed year
 
   minYear=1983 #min year of data
-  maxYear=2018 #last year of data
+  maxYear=2019 #last year of data
   print("Remember, last year of data is hardcoded into calc_pop_moments_agg")
 
   maxDuration=maxYear-minYear + 1 #duration of data for second for loop
@@ -723,8 +723,8 @@ create_pop30_agg_vc30_agg = function(pop1, vc2d){
   #print("Remember, final year of data is hardcoded into create_pop30_agg_vc30_agg")
 
   ### subset by year ###
-  pop30 = dplyr::filter(pop1, year>1983 & year<2018);  pop30 = pop30[order(pop30$adm0_adm1),]
-  vc30 = dplyr::filter(vc2d, year>1983 & year<2018)
+  pop30 = dplyr::filter(pop1, year>1983 & year<2019);  pop30 = pop30[order(pop30$adm0_adm1),]
+  vc30 = dplyr::filter(vc2d, year>1983 & year<2019)
 
   pop30[is.na(pop30) | is.na(vc30)] = 0
   vc30[is.na(vc30)] = 0
@@ -786,10 +786,11 @@ create_pop30_agg_vc30_agg = function(pop1, vc2d){
 #' extract key information from serological data
 #'
 #' @param Serology dataframe of serological data
+#' @param adm which gamd- defaults to "gadm2"
 #'
 #' @return survey_dat, adm1s, sero_studies, study_years, vc_factor, t0_vac, no_sero_studies
 #' @export
-process_serology = function(Serology){
+process_serology = function(Serology, adm = "gadm2"){
 
   #extracting values as the file is read as a tibble
   sero_studies =  unique(Serology$country_zone)                                      #serology locations
@@ -800,7 +801,7 @@ process_serology = function(Serology){
   t0_vac = unique(Serology[,c("country_zone","t0_vac") ] )[ ,2]         #first incidence of vaccination, pulled from tibble
   names(t0_vac)=unique(Serology[,c("country_zone","t0_vac") ] )[ ,1]
 
-  adm1s_tibble = unique(Serology[ , c("country_zone", "gadm2")])[ ,2]                   #shape file admin locations in tibble form
+  adm1s_tibble = unique(Serology[ , c("country_zone", adm)])[ ,2]                   #shape file admin locations in tibble form
   adm1s=list()
   for (surveyIndex in 1:no_sero_surveys) {
     adm1s[surveyIndex] = strsplit(as.character(adm1s_tibble[surveyIndex]),",")
