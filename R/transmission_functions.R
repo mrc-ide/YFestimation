@@ -166,6 +166,7 @@ fun_calc_transmission_Africa = function(x,
 
   #probability of detection
   p_detect =  fun_calc_pdetect_multi_both(x,
+                                          ii,
                                           seroout,
                                           params,
                                           dat,
