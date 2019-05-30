@@ -2,25 +2,27 @@
 
 #'calculate the probability of detection for both models
 #'
-#'@param x glm covariates
-#'@param seroout processed serology data
-#'@param params estimated parameters for both serology and GLM from either R0 or Foi model
-#'@param dat environmental and occurrence data
-#'@param t0_vac_africa time of first vaccination for admins in Africa endemic zone
-#'@param dim_year years of interest
-#'@param dim_age ages of interest
-#'@param p_prop_3d prpoprtion of population in array form
-#'@param P_tot_2d total population in 2d form
-#'@param inc_vc3d incidence of vaccination in array form
-#'@param pop_moments_whole population moments for all admins
-#'@param varsin_nc covariates in use
-#'@param vc30_agg vaccine coverage aggregated over time and space for observation period
-#'@param pop30_agg population aggregated over time and space for observation period
-#'@param model_type either "R0" or "Foi"
+#' @param x glm covariates
+#' @inheritParams ii
+#' @param seroout processed serology data
+#' @param params estimated parameters for both serology and GLM from either R0 or Foi model
+#' @param dat environmental and occurrence data
+#' @param t0_vac_africa time of first vaccination for admins in Africa endemic zone
+#' @param dim_year years of interest
+#' @param dim_age ages of interest
+#' @param p_prop_3d prpoprtion of population in array form
+#' @param P_tot_2d total population in 2d form
+#' @param inc_vc3d incidence of vaccination in array form
+#' @param pop_moments_whole population moments for all admins
+#' @param varsin_nc covariates in use
+#' @param vc30_agg vaccine coverage aggregated over time and space for observation period
+#' @param pop30_agg population aggregated over time and space for observation period
+#' @param model_type either "R0" or "Foi"
 #'
-#'@return the probability of detection
-#'@export
+#' @return the probability of detection
+#' @export
 fun_calc_pdetect_multi_both = function(x,
+                                       ii,
                                        seroout,
                                        params,
                                        dat,
@@ -53,20 +55,20 @@ fun_calc_pdetect_multi_both = function(x,
     for(k in 1:no_sero_surveys) { # repeat the numbers of time of each adm1s
       R0_vec = c(R0_vec,
                  rep(params[which(names(params)==paste0("R0_", sero_studies[k]))],
-                            length(adm1s[[k]])) )
+                     length(adm1s[[k]])) )
     }
 
     res = R0_recurrence_seroprev_whole(adm = adm,
                                        dat = dat,
                                        R0 = R0_vec,
-                                        t0_vac_adm,
-                                        dim_year,
-                                        dim_age,
-                                        p_prop_3d,
-                                        P_tot_2d,
-                                        inc_v3d,
-                                        pop_moments_whole,
-                                        vac_eff_arg = vac_eff)
+                                       t0_vac_adm,
+                                       dim_year,
+                                       dim_age,
+                                       p_prop_3d,
+                                       P_tot_2d,
+                                       inc_v3d,
+                                       pop_moments_whole,
+                                       vac_eff_arg = vac_eff)
 
     # res returns the total Nb of infection on the whole period, I only need 1984 to 2019
     Ninf = rowSums( res$Ninf_t_province[,which(dim_year==1984):which(dim_year==2019)] )

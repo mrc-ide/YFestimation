@@ -24,7 +24,9 @@ get_chains = function(path,
 
   #read
   l=lapply(temp,read.csv)
-  for(i in 1:length(l)){l[[i]] = l[[i]][,-1]}
+  for(i in 1:length(l)){
+    l[[i]] = l[[i]][,-1]
+    }
 
   #bind
   mcmc_out=data.table::rbindlist( l )
@@ -316,6 +318,7 @@ fun_calcPred = function(coefs,
 #' @param Est_beta estimated coefficients
 #' @param x covariates
 #' @param colours what colours to use- length = 1000
+#' @param plot_data whether to plot data as well, defaults to TRUE
 #'
 #' @export
 plot_glm_map = function(shp0,
@@ -324,8 +327,9 @@ plot_glm_map = function(shp0,
                         dat,
                         Est_beta,
                         x,
-                        colours){
-
+                        colours,
+                        plot_data = TRUE){
+if(plot_data){
   par(mfrow=c(1,2))
 
   ### data ###
@@ -341,6 +345,7 @@ plot_glm_map = function(shp0,
   plot(shp1[mm1,], col=colours[750], add=TRUE)
   plot(shp0,lwd=2, add=TRUE)
   plot(shp1,lwd=1, add=TRUE)
+}
 
   ### model ###
   glmpreds_tmp = fun_calcPred( Est_beta,x,type="response")
@@ -471,7 +476,7 @@ plot_sero_predictions = function(seroout,
 
 
   ### PLOT ###
-  par(mfrow=c(4,10),  par(mar = rep(2, 4)))
+  par(mfrow=c(4,10),  oma = c(4, 4, 0, 0), mar = c(2, 2, 1, 1))
   for (i in 1:seroout$no_sero_surveys){
     #get upper bound for plot axes
     maxsero = max(as.numeric(f_sero_predictions_hi[i,1:86]),
@@ -515,6 +520,8 @@ plot_sero_predictions = function(seroout,
 
     points(age_points, conf_int[,1])
   }
+  mtext('Age', side = 1, outer = TRUE, line = 2)
+  mtext('Seroprevalence', side = 2, outer = TRUE, line = 2)
 }
 
 
