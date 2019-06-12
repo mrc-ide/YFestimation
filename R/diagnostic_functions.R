@@ -14,35 +14,47 @@ get_chains = function(path,
                       burnin,
                       thin){
 
+  if(!grepl(".csv", path)){
+    #get files
+    temp = list.files(path, pattern = "\\.csv$")
+    temp = paste0(path, "/", temp)
+    temp = temp[order(file.info(temp)$mtime)]
+    temp = temp[file.info(temp)$size>5000]
 
-  #get files
-  temp = list.files(path, pattern = "\\.csv$")
-  temp = paste0(path, "/", temp)
-  temp = temp[order(file.info(temp)$mtime)]
-  temp = temp[file.info(temp)$size>5000]
 
-
-  #read
-  l=lapply(temp,read.csv)
-  for(i in 1:length(l)){
-    l[[i]] = l[[i]][,-1]
+    #read
+    l=lapply(temp,read.csv)
+    for(i in 1:length(l)){
+      l[[i]] = l[[i]][,-1]
     }
 
-  #bind
-  mcmc_out=data.table::rbindlist( l )
+    #bind
+    mcmc_out=data.table::rbindlist( l )
 
-  #remove burnin
-  if(burnin>nrow(mcmc_out)){stop("burnin exceeds chain length")}
-  mcmc_out = mcmc_out[burnin:nrow(mcmc_out),]
+  } else { # just one file
+    if(file.info(path)$size>5000){
+      mcmc_out = read.csv(path)
 
-  #remove NA rows
-  mcmc_out = mcmc_out %>% tidyr::drop_na()
+      mcmc_out = mcmc_out[, -1]
+    } else {
+      mcmc_out = NULL
+    }
+  }
 
-  #thin
-  mcmc_out=mcmc_out[seq(1,nrow(mcmc_out),thin),]
+  if(!is.null(mcmc_out)){
+    #remove burnin
+    if(burnin>nrow(mcmc_out)){stop("burnin exceeds chain length")}
+    mcmc_out = mcmc_out[burnin:nrow(mcmc_out),]
 
-  #make data frame
-  mcmc_out = as.data.frame(mcmc_out)
+    #remove NA rows
+    mcmc_out = mcmc_out %>% tidyr::drop_na()
+
+    #thin
+    mcmc_out=mcmc_out[seq(1,nrow(mcmc_out),thin),]
+
+    #make data frame
+    mcmc_out = as.data.frame(mcmc_out)
+  }
 
   return(mcmc_out)
 }
@@ -329,23 +341,23 @@ plot_glm_map = function(shp0,
                         x,
                         colours,
                         plot_data = TRUE){
-if(plot_data){
-  par(mfrow=c(1,2))
+  if(plot_data){
+    par(mfrow=c(1,2))
 
-  ### data ###
-  plot(shp0, xlim=c(-15,45),ylim=c(-20,35))
-  mm0 = match(shp0$ISO,c34) #
-  plot(shp0[is.na(mm0),],col="black",add=TRUE)
+    ### data ###
+    plot(shp0, xlim=c(-15,45),ylim=c(-20,35))
+    mm0 = match(shp0$ISO,c34) #
+    plot(shp0[is.na(mm0),],col="black",add=TRUE)
 
-  pres= dat$adm0_adm1[dat$cas.or.out>0]
+    pres= dat$adm0_adm1[dat$cas.or.out>0]
 
-  mm1<-match(pres, shp1$adm0_adm1)
+    mm1<-match(pres, shp1$adm0_adm1)
 
 
-  plot(shp1[mm1,], col=colours[750], add=TRUE)
-  plot(shp0,lwd=2, add=TRUE)
-  plot(shp1,lwd=1, add=TRUE)
-}
+    plot(shp1[mm1,], col=colours[750], add=TRUE)
+    plot(shp0,lwd=2, add=TRUE)
+    plot(shp1,lwd=1, add=TRUE)
+  }
 
   ### model ###
   glmpreds_tmp = fun_calcPred( Est_beta,x,type="response")
