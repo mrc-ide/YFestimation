@@ -172,7 +172,7 @@ GLM_MCMC = function(Niter, name_dir, pars_ini, x, y, plot_chain, run_id = 1){
 
       out_state = cbind(chain,  posteriorProb, acceptRate)[min((fileIndex * 10000+1),iter):iter,]
 
-      write.csv(out_state, paste0(name_dir,"/","GLM_chain",run_id,"_output_",run_id, " .csv") )
+      write.csv(out_state, paste0(name_dir,"/","GLM_chain",run_id,"_output_",fileIndex, " .csv") )
     }
 
     #adapt?
