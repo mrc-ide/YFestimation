@@ -587,27 +587,38 @@ Make_aggregate_pop_vc = function(pop1,
                                  adm0_adm1 %in% adm1s[[surveyIndex]])
 
       if (nrow(pop_tmp)==1) {
-        pop_tmp$adm0 = sero_studies[surveyIndex]
-        vc_tmp$adm0 = sero_studies[surveyIndex]
+
+        pop_tmp %<>% mutate(adm0 = sero_studies[surveyIndex])
+        vc_tmp %<>% mutate(adm0 = sero_studies[surveyIndex])
+
       } else { # need to do some summing/averaging...
 
-        pop_tmp[is.na(vc_tmp)] = NA
-        vc_tmp = colSums(pop_tmp[,-(1:3)]*vc_tmp[,-(1:3)],na.rm=TRUE)/
-          colSums(pop_tmp[,-(1:3)],na.rm=TRUE)
-        dim(vc_tmp) = c(1,length(vc_tmp))
-        colnames(vc_tmp) = paste0("a",0:100)
+        if(anyNA(vc_tmp)){
+          pop_tmp[is.na(vc_tmp)] = NA
+        }
+
+
+
+        vc_tmp2 = colSums(select(pop_tmp, -c(year, adm0_adm1)) * select(vc_tmp, -c(year, adm0_adm1)),na.rm=TRUE)/
+          colSums(select(pop_tmp, -c(year, adm0_adm1)),na.rm=TRUE)
+
+
+        names(vc_tmp2) = paste0("a",0:100)
+
         vc_tmp = data.frame(adm0 = sero_studies[surveyIndex],
                             adm0_adm1 = NA,
                             year = yearIndex,
-                            vc_tmp)
+                            vc_tmp2)
 
-        pop_tmp = colSums(pop_tmp[,-(1:3)])
-        dim(pop_tmp) = c(1,length(pop_tmp))
-        colnames(pop_tmp) = paste0("a",0:100)
+        pop_tmp = colSums(select(pop_tmp, -c(year, adm0_adm1)))
+
+        names(pop_tmp) = paste0("a",0:100)
+
         pop_tmp = data.frame(adm0 = sero_studies[surveyIndex],
                              adm0_adm1 = NA,
                              year = yearIndex,
                              pop_tmp)
+
       }
       pop_agg = rbind(pop_agg,pop_tmp)
       vc_agg = rbind(vc_agg,vc_tmp)
