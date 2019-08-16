@@ -608,7 +608,7 @@ Make_aggregate_pop_vc = function(pop1,
         vc_tmp = data.frame(adm0 = sero_studies[surveyIndex],
                             adm0_adm1 = NA,
                             year = yearIndex,
-                            vc_tmp2)
+                            t(vc_tmp2) )
 
         pop_tmp = colSums(select(pop_tmp, -c(year, adm0_adm1)))
 
@@ -617,7 +617,7 @@ Make_aggregate_pop_vc = function(pop1,
         pop_tmp = data.frame(adm0 = sero_studies[surveyIndex],
                              adm0_adm1 = NA,
                              year = yearIndex,
-                             pop_tmp)
+                             t(pop_tmp))
 
       }
       pop_agg = rbind(pop_agg,pop_tmp)
