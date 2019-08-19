@@ -311,32 +311,23 @@ get_pop_data_3d = function(path, c_country, dat) {
 #' get vaccine data into an array
 #'
 #' @param vc2d 2-dimensional vaccination data
-#' @param adm admin level
+#' @param adm defunct
 #'
 #'
 #' @return vc3d
 #' @export
-transform_into_vc3d = function(vc2d, adm){
+transform_into_vc3d = function(vc2d, adm = NA){
 
-  adm0_adm = paste0("adm0_", adm)
+  vc_tmp = tidyr::gather(vc2d, age, coverage, -c(year, adm0_adm1))
 
-  dim_adm = unique(vc2d[,adm0_adm])
-  dim_year = as.numeric(unique(vc2d$year))
-  dim_age = names(vc2d)[4:length(names(vc2d))]
-
-  length_adm=length(dim_adm);   length_year=length(dim_year);   length_age=length(dim_age)
-
-  vc3d=rep(NA, nrow(vc2d)*length_age)
-  dim(vc3d)=c(length_adm, length_year, length_age)
-
-  for(ageIndex in 1:length_age) {
-    for(yearIndex in min(dim_year):max(dim_year)) {
-      mm = match( vc2d[,adm0_adm][vc2d$year==yearIndex], dim_adm )
-      vc3d[mm, yearIndex-min(dim_year)+1, ageIndex] = vc2d[vc2d$year==yearIndex, ageIndex+3]
-    }
-  }
-
-  dimnames(vc3d)[[1]] = dim_adm; dimnames(vc3d)[[2]] = dim_year; dimnames(vc3d)[[3]] = dim_age
+  vc3d = array(data = vc_tmp$coverage,
+               dim=c(length(unique(vc_tmp$adm0_adm1)),
+                     length(unique(vc_tmp$year)),
+                     length(unique(vc_tmp$age))),
+               dimnames=list(unique(vc_tmp$adm0_adm1),
+                             unique(vc_tmp$year),
+                             unique(vc_tmp$age))
+  )
 
   return(vc3d)
 }
@@ -577,7 +568,7 @@ Make_aggregate_pop_vc = function(pop1,
 
   vc_tmp = pop_tmp = pop_agg = vc_agg = NULL
 
-  for(yearIndex in 1940:2100) { # if needed replace 2050 by max(unlist(study_years))
+  for(yearIndex in 1940:max(pop1$year)) { # if needed replace 2050 by max(unlist(study_years))
     for(surveyIndex in 1:no_sero_surveys) {
 
       pop_tmp = pop1 %>% filter(year == yearIndex &
@@ -659,7 +650,7 @@ Make_aggregate_pop_vc_3d = function(pop1,
 
   dim_survey = sero_studies
   dim_year = as.numeric(names(table(pop_agg$year)))
-  dim_age = names(pop1)[4:length(names(pop_agg))]
+  dim_age = names(pop1 %>% select(-c(adm0_adm1, year)))
 
   length_survey=length(dim_survey);   length_year=length(dim_year);   length_age=length(dim_age)
 
@@ -667,7 +658,7 @@ Make_aggregate_pop_vc_3d = function(pop1,
   pop_agg3d=rep(NA, nrow(pop_agg)*length_age)
   dim(pop_agg3d)=c(length_survey, length_year, length_age)
   vc_agg3d=rep(NA, nrow(vc_agg)*length_age)
-  dim(vc_agg3d)=c(length(table(vc_agg$adm0)), length(table(vc_agg$year)),length_age)
+  dim(vc_agg3d)=c(length_survey, length_year,length_age)
 
   for(ageIndex in 1:length_age) { # dim_age
     for(yearIndex in min(dim_year):max(dim_year)) {
