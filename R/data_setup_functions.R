@@ -447,7 +447,7 @@ calc_pop_moments = function(p_prop,
   for (admIndex in 1:length_adm){
     if (t0_vac_[admIndex]<maxYear){
 
-      vec = which(dim_year==1940):which(dim_year==t0_vac_[admIndex])
+      vec = which(dim_year==1940):max(which(dim_year==t0_vac_[admIndex]), 1)
 
       pop_moments_whole_tmp = rep(NA, length(vec)*6)
       dim(pop_moments_whole_tmp) = c(length(vec), 6)
@@ -732,20 +732,20 @@ create_pop30_agg_vc30_agg = function(pop1, vc2d){
   vc30[is.na(vc30)] = 0
 
   ### aggregate first age group ###
-  pop30_agg = aggregate(pop30[,4],
+  pop30_agg = aggregate(pop30[,"a0"],
                         by=list(adm0_adm1=pop30$adm0_adm1),
                         sum) # a0 is the 4th column,
 
-  vc30_agg = aggregate(vc30[,4]*pop30[,4],
+  vc30_agg = aggregate(vc30[,"a0"]*pop30[,"a0"],
                        by=list(adm0_adm1=vc30$adm0_adm1),
                        sum) # number of vaccinated people by age, aggregated over 30y
 
   vc30_agg$x = vc30_agg$x/pop30_agg$x
 
-  names(pop30_agg)[2] = names(vc30_agg)[2] = names(pop30)[4]
+  names(pop30_agg)[2] = names(vc30_agg)[2] = names(pop30)["a0"]
 
   ### then other age groups ###
-  for(i in 5:ncol(pop30)) {
+  for(i in grep("a1", names(pop30))[1]:ncol(pop30)) {
 
     pop30_agg = cbind(pop30_agg, aggregate(pop30[,i],
                                            by=list(adm0_adm1=pop30$adm0_adm1),

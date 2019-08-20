@@ -43,7 +43,7 @@ fun_calc_pdetect_multi_both = function(x,
   no_sero_surveys = seroout$no_sero_surveys
 
   # calculate the b term from the left part of equation 6(plos Med paper)
-  adm = match(unlist(adm1s), dat$adm0_adm1)
+  adm = match(unlist(adm1s), vc30_agg$adm0_adm1)
   t0_vac_adm = t0_vac_africa[adm]
 
   # now I have to calculate the Number of infections over observation period among each PROVINCE covered by a survey
