@@ -610,7 +610,7 @@ SEROproposal = function(param, chain_cov, adapt, model_type) {
 SEROprior = function(param,  parameter_type, model_type ) {
 
   #ADJUST FOR LOG TRANSFORM
-  correction = sum(param)
+  correction = - sum(param)
   params = exp(param)
 
   #declare
