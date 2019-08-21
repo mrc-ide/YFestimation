@@ -675,11 +675,11 @@ SEROlike = function(param,
   no_sero_surveys = length(seroout$survey_dat)
 
   #sort out parameters
-  vac_eff = exp(param[1]) # ADJUST FOR LOG TRANSFORM
-  vcfac_CMRs = exp(param[length(param)]) # ADJUST FOR LOG TRANSFORM
+  vac_eff = exp(param[grep("vac_eff", names(param))]) # ADJUST FOR LOG TRANSFORM
+  vcfac_CMRs = exp(param[grep("vc", names(param))]) # ADJUST FOR LOG TRANSFORM
 
   vcfac = seroout$vc_factor
-  vcfac[6] = vcfac_CMRs
+  vcfac[seroout$sero_studies == "CMRs"] = vcfac_CMRs
 
   ### declare lnL
   lnL = rep(NA, no_sero_surveys)
