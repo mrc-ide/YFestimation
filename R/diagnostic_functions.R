@@ -83,7 +83,7 @@ plot_prior_post = function(mcmc_out,
     par(mfrow=c(3,2), mar = c(4,4,2,1) + 0.1)
 
     #get the variables that are country factors
-    jj = grep("^log.adm05", names(mcmc_out))
+    jj = grep("adm05", names(mcmc_out))
     sd.prior = 2 #hardcoded- check matches GLMprior
 
     p=as.data.frame(mcmc_out)[,names(mcmc_out)[jj]]
@@ -98,7 +98,7 @@ plot_prior_post = function(mcmc_out,
 
 
     #plot for everything else
-    kk = grep("^log.adm05", names(mcmc_out), invert = TRUE)[1:4]
+    kk = grep("adm05", names(mcmc_out), invert = TRUE)[1:4]
     for (i in kk){
       q = as.numeric(as.data.frame(mcmc_out)[,names(mcmc_out)[i]])
 
