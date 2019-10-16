@@ -18,7 +18,7 @@ get_chains = function(path,
     #get files
     temp = list.files(path, pattern = "\\.csv$")
     temp = paste0(path, "/", temp)
-    temp = temp[order(file.info(temp)$mtime)]
+    temp = temp[order(file.info(temp)$atime)]
     temp = temp[file.info(temp)$size>5000]
 
 
