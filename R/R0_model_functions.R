@@ -208,7 +208,7 @@ R0_recurrence_seroprev_whole = function(adm,
 
   for (i in 1:length(adm) ){
 
-    time_limit = min(1981, t0_vac_adm[i])  #THIS IS CONSISTENT?
+    time_limit = min(1981, max(t0_vac_adm[i], 1940) )    #THIS IS CONSISTENT?
     p_at= p_prop_3d[adm[i], ,]
     P_tot=P_tot_2d[adm[i], ]
     inc_v=inc_v3d[adm[i], ,]
