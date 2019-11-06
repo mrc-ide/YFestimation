@@ -183,7 +183,7 @@ fun_calc_transmission_Africa = function(x,
                                           model_type)
 
 
-  p_detect_link = mean(p_detect, na.rm = TRUE)
+  p_detect_link = mean(p_detect)
 
   #calculating number of infections over the observation period for the whole region
   Ninf_whole = exp( mypreds_nc - p_detect_link)
