@@ -408,12 +408,12 @@ R0_calculate_seroprevalence = function(index_survey,
 #'
 #' @param dim_adm admin 1 units
 #' @param dat data on environment and occurrence
+#' @param t0_vac_africa first year of vaccination
 #' @param dim_year years of interest
 #' @param dim_age ages of interest
 #' @param p_at_survey_3d population proportion  as an array
 #' @param P_tot_survey_2d population total
 #' @param inc_v3d incidence of vacciantion
-#' @param pop_moments_agg aggregated population moments
 #' @param pop_moments_whole popualtion moments
 #' @param vcfac_arg vaccine coverage factor, defaults to 1
 #' @param vac_eff_arg vaccine efficacy
@@ -423,13 +423,13 @@ R0_calculate_seroprevalence = function(index_survey,
 #' @export
 create_R0_lookup = function(dim_adm,
                             dat,
+                            t0_vac_africa,
                             dim_year,
                             dim_age,
                             p_prop_3d,
                             P_tot_2d,
                             inc_v3d,
                             pop_moments_whole,
-                            pop_moments_agg,
                             vac_eff_arg = 1,
                             granularity = "coarse") {
 
