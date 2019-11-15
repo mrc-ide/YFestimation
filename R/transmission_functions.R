@@ -214,7 +214,8 @@ fun_calc_transmission_Africa = function(x,
     transmission_whole = rep(NA, length(Ninf_whole))
 
     for (i in 1: length(t0_vac_africa) ){
-      inf_bound = findInterval(floor(Ninf_whole[i]), R0_lookup[i,], left.open = TRUE)
+      inf_bound = max( findInterval(floor(Ninf_whole[i]), R0_lookup[i,], left.open = TRUE) ,
+                       1)
       sup_bound = inf_bound + 1
 
       if( sup_bound <= ncol(R0_lookup)){
