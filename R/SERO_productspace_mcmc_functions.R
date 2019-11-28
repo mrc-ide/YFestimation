@@ -364,8 +364,8 @@ Sero_Gibbs_MCMC_parameter_step = function(param,
 
   ## accept/reject step:
   accept = 0
-  tmp = (runif(1))
-  if( tmp< min( exp(p_accept), 1) ) { # accept:
+  tmp = log(runif(1))
+  if( tmp< min( (p_accept), log(1) ) ) { # accept:
     param = param_prop
     accept = 1
   }
@@ -617,7 +617,7 @@ SEROprior = function(param,  parameter_type, model_type ) {
   Prior = rep(0,4)
 
   #vac eff
-  Prior[1]= log( dtrunc(params[ parameter_type == 1],"norm",a=0, b=1, mean = 0.975, sd = 0.05) )  #KEVINS PAPER
+  Prior[1]= log( dtrunc(params[ which(parameter_type == 1)],"norm",a=0, b=1, mean = 0.975, sd = 0.05) )  #KEVINS PAPER
 
   #transmission parameters
   Prior[2] = switch(model_type,
@@ -625,7 +625,7 @@ SEROprior = function(param,  parameter_type, model_type ) {
                     "R0" = sum(dexp(params[grep("R0", names(params))] - 1, rate = 0.001, log =TRUE)))
 
   #vc.factor
-  Prior[3] =  dunif(params[parameter_type == 4],
+  Prior[3] =  dunif(params[which(parameter_type == 4)],
                     min = 0,
                     max = 1,
                     log = TRUE) #  vc.factor
@@ -633,6 +633,7 @@ SEROprior = function(param,  parameter_type, model_type ) {
   Prior[4] = correction
 
   out = as.numeric( Prior )
+  #print(out)
   return( out )
 }
 
